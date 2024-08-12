@@ -1,4 +1,5 @@
 import datetime
+import asyncio
 
 from sqlalchemy import ForeignKey, select
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
@@ -50,5 +51,6 @@ async def create_user(id: int, balance: int):
 async def change_balance(user_id: int, value: int):
     async with AsyncSession(ENGINE) as session:
         stmt = select(User).where(User.id == user_id)
-        user = session.scalars(stmt).one()
+        user = (await session.scalars(stmt)).one()
         user.balance += value
+        await session.commit()

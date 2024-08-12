@@ -12,7 +12,7 @@ from aiogram.types import Message
 
 import model
 
-TOKEN = getenv("BOT_TOKEN")
+TOKEN = '7209983319:AAHzHb9zJQq9ZrRBSFDfueLFEpi7K17xxbY'
 dp = Dispatcher()
 
 
