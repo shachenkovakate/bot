@@ -3,7 +3,7 @@ import asyncio
 
 from sqlalchemy import ForeignKey, select
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 ENGINE = create_async_engine("sqlite+aiosqlite:///database.db", echo=True)
 
@@ -17,6 +17,7 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     balance: Mapped[int]
+    state: Mapped[int]
 
 
 class Delta(Base):
@@ -41,16 +42,70 @@ async def create_delta(user_id: int, ts: datetime.datetime, value: int):
         await session.commit()
 
 
-async def create_user(id: int, balance: int):
+async def create_user(user_id: int, balance: int):
     async with AsyncSession(ENGINE) as session:
-        user = User(id=id, balance=balance)
-        session.add(user)
-        await session.commit()
+        stmt = select(User).where(User.id == user_id)
+        user = (await session.scalars(stmt)).one_or_none()
+        if user is None:
+            user = User(id=user_id, balance=balance, state=0)
+            session.add(user)
+            await session.commit()
 
 
 async def change_balance(user_id: int, value: int):
     async with AsyncSession(ENGINE) as session:
         stmt = select(User).where(User.id == user_id)
-        user = (await session.scalars(stmt)).one()
+        user = (await session.scalars(stmt)).one_or_none()
+        if user is None:
+            user = User(id=user_id, balance=0, state=0)
+            session.add(user)
         user.balance += value
         await session.commit()
+
+
+async def change_state(user_id: int, state: int):
+    async with AsyncSession(ENGINE) as session:
+        stmt = select(User).where(User.id == user_id)
+        user = (await session.scalars(stmt)).one_or_none()
+        if user is None:
+            user = User(id=user_id, balance=0, state=0)
+            session.add(user)
+        user.state = state
+        await session.commit()
+
+
+async def get_state(user_id: int) -> int:
+    async with AsyncSession(ENGINE) as session:
+        stmt = select(User).where(User.id == user_id)
+        user = (await session.scalars(stmt)).one_or_none()
+
+        print('MMMMMMMMMMM')
+
+        if user is None:
+            return -1
+        else:
+            return user.state
+
+
+async def mean(ts1: datetime.datetime, ts2: datetime.datetime, user_id: int, typee: int) -> float:
+    if ts1 > ts2:
+        t = ts1
+        ts1 = ts2
+        ts2 = t
+
+    ts = ts2 - ts1
+
+    async with AsyncSession(ENGINE) as session:
+        stmt = select(Delta).where(
+            Delta.user_id == user_id).where(
+            ts2 >= Delta.timestamp).where(
+            Delta.timestamp >= ts1).where(
+            typee * Delta.value > 0)
+        result = await session.execute(stmt)
+        events = result.scalars().all()
+        sum = 0
+        for e in events:
+            sum += e.value
+            print(e.value, end='\n')
+        answer = sum / (ts.days + 1)
+        return answer

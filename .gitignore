@@ -1,0 +1,5 @@
+tk.py
+.idea
+.venv
+__pycache__
+database.db
